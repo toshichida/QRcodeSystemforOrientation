@@ -1,6 +1,6 @@
 /**
  * QRコード受付システム - QR 読み取り
- * html5-qrcode 使用、スマホ: 固定枠 / PC: 広めの枠
+ * html5-qrcode 使用、スマホ・PC 両対応
  */
 
 const READER_ELEMENT_ID = 'reader';
@@ -32,27 +32,39 @@ function initAndStart(mode, onScan) {
   }
   html5QrCode = new Html5Qrcode(READER_ELEMENT_ID);
 
-  // 午前モード: スマホ背面カメラ / 午後モード: PC ウェブカメラ
-  const facingMode = (mode === 'morning' && isMobile()) ? 'environment' : 'user';
+  const isSmartphone = isMobile();
 
-  // 読み取り枠: スマホは固定サイズ、PCは適度なサイズ（最大400px）
-  const qrboxConfig = isMobile()
-    ? { width: 250, height: 250 }
-    : (viewfinderWidth, viewfinderHeight) => {
-        const maxSize = 400;
-        const size = Math.min(
-          Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.8),
-          maxSize
-        );
-        return { width: size, height: size };
-      };
+  // 午前モード（スマホ）: 背面カメラを優先 / それ以外: 前面カメラを優先
+  // ideal を使用してカメラが存在しない場合でもフォールバックできるようにする
+  const useBackCamera = mode === 'morning' && isSmartphone;
+  const cameraConstraint = useBackCamera
+    ? { facingMode: { ideal: 'environment' } }
+    : { facingMode: { ideal: 'user' } };
+
+  // 読み取り枠: スマホ・PC ともに動的関数で計算
+  // 【修正】固定値 250x250 はビューファインダーより大きくなるケースがあり
+  // html5-qrcode がエラーを投げてスキャンを停止してしまうため、
+  // 常にビューファインダーのサイズに合わせた動的計算に変更する
+  const maxQrboxSize = isSmartphone ? 280 : 400;
+  const qrboxFunction = (viewfinderWidth, viewfinderHeight) => {
+    const size = Math.min(
+      Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.8),
+      maxQrboxSize
+    );
+    return { width: size, height: size };
+  };
+
+  // fps: スマホは主スレッドの処理負荷を抑えるため低めに設定
+  // 【修正】30fps はスマホ CPU を圧迫してフレーム処理が止まる原因になる
+  const fps = isSmartphone ? 10 : 30;
 
   html5QrCode.start(
-    { facingMode },
+    cameraConstraint,
     {
-      fps: 30,          // 10→30fpsに引き上げてQR検知速度を最大化
-      qrbox: qrboxConfig,
-      disableFlip: false
+      fps,
+      qrbox: qrboxFunction,
+      aspectRatio: 4 / 3,   // コンテナのアスペクト比に合わせてカメラ映像の歪みを防ぐ
+      disableFlip: false,
     },
     (decodedText) => {
       onScan(decodedText);
