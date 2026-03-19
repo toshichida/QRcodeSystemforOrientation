@@ -70,7 +70,7 @@ function getParticipantData(id) {
   if (row === -1) return null;
 
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_PARTICIPANTS);
-  var rowData = sheet.getRange(row, 1, row, COL_CHECKBOX).getValues()[0];
+  var rowData = sheet.getRange(row, 1, 1, COL_CHECKBOX).getValues()[0];
 
   return {
     id: String(rowData[COL_ID - 1] || '').trim(),
@@ -80,25 +80,38 @@ function getParticipantData(id) {
     department: String(rowData[COL_DEPARTMENT - 1] || '').trim(),
     residence: String(rowData[COL_RESIDENCE - 1] || '').trim(),
     assemblyRoom: String(rowData[COL_ASSEMBLY_ROOM - 1] || '').trim(),
-    receptionStatus: String(rowData[COL_RECEPTION_STATUS - 1] || '').trim(),
-    receptionDatetime: String(rowData[COL_RECEPTION_DATETIME - 1] || '').trim(),
-    receptionStaff: String(rowData[COL_RECEPTION_STAFF - 1] || '').trim()
+    amReceptionStatus: String(rowData[COL_AM_RECEPTION_STATUS - 1] || '').trim(),
+    amReceptionDatetime: String(rowData[COL_AM_RECEPTION_DATETIME - 1] || '').trim(),
+    amReceptionStaff: String(rowData[COL_AM_RECEPTION_STAFF - 1] || '').trim(),
+    pmReceptionStatus: String(rowData[COL_PM_RECEPTION_STATUS - 1] || '').trim(),
+    pmReceptionDatetime: String(rowData[COL_PM_RECEPTION_DATETIME - 1] || '').trim(),
+    pmReceptionStaff: String(rowData[COL_PM_RECEPTION_STAFF - 1] || '').trim()
   };
 }
 
 /**
  * 受付ステータス・受付日時・受付担当者を更新する
+ * @param {string} id - 参加者ID
+ * @param {string} staff - 受付担当者名
+ * @param {string} mode - 'am'（午前）または 'pm'（午後）
  */
-function updateReceptionStatus(id, staff) {
+function updateReceptionStatus(id, staff, mode) {
   var row = findParticipantRowById(id);
   if (row === -1) return false;
 
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_PARTICIPANTS);
   var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
 
-  sheet.getRange(row, COL_RECEPTION_STATUS).setValue('受付済み');
-  sheet.getRange(row, COL_RECEPTION_DATETIME).setValue(now);
-  sheet.getRange(row, COL_RECEPTION_STAFF).setValue(staff);
+  if (mode === 'pm') {
+    sheet.getRange(row, COL_PM_RECEPTION_STATUS).setValue('受付済み');
+    sheet.getRange(row, COL_PM_RECEPTION_DATETIME).setValue(now);
+    sheet.getRange(row, COL_PM_RECEPTION_STAFF).setValue(staff);
+  } else {
+    // デフォルトは午前（'am'）
+    sheet.getRange(row, COL_AM_RECEPTION_STATUS).setValue('受付済み');
+    sheet.getRange(row, COL_AM_RECEPTION_DATETIME).setValue(now);
+    sheet.getRange(row, COL_AM_RECEPTION_STAFF).setValue(staff);
+  }
 
   return true;
 }

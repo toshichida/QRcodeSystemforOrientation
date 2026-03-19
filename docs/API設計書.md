@@ -77,9 +77,12 @@ GET https://script.google.com/macros/s/xxxxx/exec?action=getParticipant&id=ORI-0
     "department": "修士課程",
     "residence": "大学寮A",
     "assemblyRoom": "101",
-    "receptionStatus": "受付済み",
-    "receptionDatetime": "2025-03-19 09:45:00",
-    "receptionStaff": "佐藤"
+    "amReceptionStatus": "受付済み",
+    "amReceptionDatetime": "2025-03-19 09:45:00",
+    "amReceptionStaff": "佐藤",
+    "pmReceptionStatus": "受付済み",
+    "pmReceptionDatetime": "2025-03-19 14:30:00",
+    "pmReceptionStaff": "田中"
   }
 }
 ```
@@ -95,9 +98,12 @@ GET https://script.google.com/macros/s/xxxxx/exec?action=getParticipant&id=ORI-0
 | data.department | string | 所属課程 |
 | data.residence | string | 住まい |
 | data.assemblyRoom | string | 集合教室 |
-| data.receptionStatus | string | 受付ステータス（未受付時は空または「未受付」） |
-| data.receptionDatetime | string | 受付日時 |
-| data.receptionStaff | string | 受付担当者 |
+| data.amReceptionStatus | string | 午前受付ステータス（未受付時は空または「未受付」） |
+| data.amReceptionDatetime | string | 午前受付日時 |
+| data.amReceptionStaff | string | 午前受付担当者 |
+| data.pmReceptionStatus | string | 午後受付ステータス（未受付時は空または「未受付」） |
+| data.pmReceptionDatetime | string | 午後受付日時 |
+| data.pmReceptionStaff | string | 午後受付担当者 |
 
 ※ フロントエンドの表示項目カスタマイズに応じ、必要なフィールドのみ返却する設計も可能。初期は全フィールドを返し、フロントで表示項目をフィルタする。
 
@@ -153,7 +159,8 @@ QRスキャン時に、受付ステータス・受付日時・受付担当者を
 {
   "action": "registerReception",
   "id": "ORI-001",
-  "staff": "佐藤"
+  "staff": "佐藤",
+  "mode": "am"
 }
 ```
 
@@ -162,6 +169,7 @@ QRスキャン時に、受付ステータス・受付日時・受付担当者を
 | action | ○ | string | `registerReception`（固定） |
 | id | ○ | string | 参加者ID |
 | staff | ○ | string | 受付担当者名 |
+| mode | ○ | string | `am`（午前）または `pm`（午後） |
 
 #### リクエスト例（fetch）
 
@@ -175,7 +183,8 @@ fetch(GAS_WEB_APP_URL, {
   body: JSON.stringify({
     action: 'registerReception',
     id: 'ORI-001',
-    staff: '佐藤'
+    staff: '佐藤',
+    mode: 'am'  // 'am'（午前）または 'pm'（午後）
   })
 });
 ```
@@ -189,9 +198,10 @@ fetch(GAS_WEB_APP_URL, {
   "success": true,
   "data": {
     "id": "ORI-001",
-    "receptionStatus": "受付済み",
-    "receptionDatetime": "2025-03-19 09:45:00",
-    "receptionStaff": "佐藤"
+    "mode": "am",
+    "amReceptionStatus": "受付済み",
+    "amReceptionDatetime": "2025-03-19 09:45:00",
+    "amReceptionStaff": "佐藤"
   }
 }
 ```
@@ -201,11 +211,15 @@ fetch(GAS_WEB_APP_URL, {
 | success | boolean | 成功時は `true` |
 | data | object | 登録結果 |
 | data.id | string | 参加者ID |
-| data.receptionStatus | string | 更新後の受付ステータス |
-| data.receptionDatetime | string | 更新後の受付日時 |
-| data.receptionStaff | string | 受付担当者 |
+| data.mode | string | 更新したモード（`am` または `pm`） |
+| data.amReceptionStatus | string | 更新後の午前受付ステータス（mode が am の場合のみ更新） |
+| data.amReceptionDatetime | string | 更新後の午前受付日時 |
+| data.amReceptionStaff | string | 午前受付担当者 |
+| data.pmReceptionStatus | string | 更新後の午後受付ステータス（mode が pm の場合のみ更新） |
+| data.pmReceptionDatetime | string | 更新後の午後受付日時 |
+| data.pmReceptionStaff | string | 午後受付担当者 |
 
-※ 重複スキャン時も成功として扱い、受付日時・担当者を上書き更新する。
+※ 重複スキャン時も成功として扱い、該当モード（午前/午後）の受付日時・担当者を上書き更新する。午前と午後は独立して管理される。
 
 #### エラー時（200 OK + success: false）
 
@@ -268,9 +282,12 @@ doPost(e)
 | 所属課程 | department |
 | 住まい | residence |
 | 集合教室 | assemblyRoom |
-| 受付ステータス | receptionStatus |
-| 受付日時 | receptionDatetime |
-| 受付担当者 | receptionStaff |
+| 午前受付ステータス | amReceptionStatus |
+| 午前受付日時 | amReceptionDatetime |
+| 午前受付担当者 | amReceptionStaff |
+| 午後受付ステータス | pmReceptionStatus |
+| 午後受付日時 | pmReceptionDatetime |
+| 午後受付担当者 | pmReceptionStaff |
 
 ---
 
@@ -281,10 +298,10 @@ doPost(e)
 2. GET ?action=getParticipant&id={id}
    - success: false → エラー表示・エラー音
    - success: true → 参加者情報表示
-3. success: true の場合、POST { action, id, staff }
-   - 受付登録（スプレッドシート更新）
+3. success: true の場合、POST { action, id, staff, mode }
+   - 受付登録（スプレッドシートの午前/午後対応列を更新）
 4. スキャン成功音
-5. 既に受付済み（receptionStatus が「受付済み」）なら「受付済み」表示
+5. 現在のモードで既に受付済み（amReceptionStatus または pmReceptionStatus が「受付済み」）なら「受付済み」表示
 ```
 
 ---

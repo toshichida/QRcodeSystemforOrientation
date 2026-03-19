@@ -80,6 +80,7 @@ function doPost(e) {
     var action = json.action;
     var id = json.id;
     var staff = json.staff;
+    var mode = (json.mode === 'pm') ? 'pm' : 'am'; // 'am'（午前）または 'pm'（午後）、デフォルトは午前
 
     if (!id || String(id).trim() === '') {
       return createErrorResponse('INVALID_REQUEST', '参加者IDが指定されていません。');
@@ -96,11 +97,12 @@ function doPost(e) {
         return createErrorResponse('NOT_FOUND', '指定されたIDの参加者が見つかりません。');
       }
 
-      // 登録前の受付状態を記録
-      var wasAlreadyReceived = participant.receptionStatus === '受付済み';
+      // 登録前の受付状態を現在のモードで判定
+      var receptionStatusKey = (mode === 'pm') ? 'pmReceptionStatus' : 'amReceptionStatus';
+      var wasAlreadyReceived = participant[receptionStatusKey] === '受付済み';
 
       // 受付ステータスを更新（既に受付済みでも上書き記録）
-      updateReceptionStatus(id, staff);
+      updateReceptionStatus(id, staff, mode);
 
       return createJsonResponse({
         success: true,
@@ -114,7 +116,7 @@ function doPost(e) {
       if (!staff || String(staff).trim() === '') {
         return createErrorResponse('INVALID_REQUEST', '受付担当者が指定されていません。');
       }
-      var success = updateReceptionStatus(id, staff);
+      var success = updateReceptionStatus(id, staff, mode);
       if (!success) {
         return createErrorResponse('NOT_FOUND', '指定されたIDの参加者が見つかりません。');
       }
@@ -123,9 +125,13 @@ function doPost(e) {
         success: true,
         data: {
           id: updatedParticipant.id,
-          receptionStatus: updatedParticipant.receptionStatus,
-          receptionDatetime: updatedParticipant.receptionDatetime,
-          receptionStaff: updatedParticipant.receptionStaff
+          mode: mode,
+          amReceptionStatus: updatedParticipant.amReceptionStatus,
+          amReceptionDatetime: updatedParticipant.amReceptionDatetime,
+          amReceptionStaff: updatedParticipant.amReceptionStaff,
+          pmReceptionStatus: updatedParticipant.pmReceptionStatus,
+          pmReceptionDatetime: updatedParticipant.pmReceptionDatetime,
+          pmReceptionStaff: updatedParticipant.pmReceptionStaff
         }
       });
     }

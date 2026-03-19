@@ -255,7 +255,8 @@ async function handleScan(participantId) {
   hideError();
   showLoading();
 
-  const result = await API.scanAndRegister(participantId, staff);
+  const apiMode = currentMode === MODE_MORNING ? 'am' : 'pm';
+  const result = await API.scanAndRegister(participantId, staff, apiMode);
 
   if (!result.success) {
     showError(result.error?.message || 'エラーが発生しました。');

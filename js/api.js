@@ -23,15 +23,16 @@ const API = {
    * getParticipant + registerReception を統合し、APIリクエストを1回に削減
    * @param {string} id - 参加者ID
    * @param {string} staff - 受付担当者
+   * @param {string} mode - 'am'（午前）または 'pm'（午後）
    * @returns {Promise<{success: boolean, data?: object, wasAlreadyReceived?: boolean, error?: object}>}
    */
-  async scanAndRegister(id, staff) {
+  async scanAndRegister(id, staff, mode) {
     try {
       const res = await fetch(CONFIG.GAS_WEB_APP_URL, {
         method: 'POST',
         mode: 'cors',
         headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'scanAndRegister', id, staff })
+        body: JSON.stringify({ action: 'scanAndRegister', id, staff, mode })
       });
       return await res.json();
     } catch (err) {
@@ -58,15 +59,16 @@ const API = {
    * 受付登録（後方互換用）
    * @param {string} id - 参加者ID
    * @param {string} staff - 受付担当者
+   * @param {string} mode - 'am'（午前）または 'pm'（午後）
    * @returns {Promise<{success: boolean, data?: object, error?: object}>}
    */
-  async registerReception(id, staff) {
+  async registerReception(id, staff, mode) {
     try {
       const res = await fetch(CONFIG.GAS_WEB_APP_URL, {
         method: 'POST',
         mode: 'cors',
         headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'registerReception', id, staff })
+        body: JSON.stringify({ action: 'registerReception', id, staff, mode })
       });
       return await res.json();
     } catch (err) {
