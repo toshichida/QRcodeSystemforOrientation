@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QRコード受付システム</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>QRコード受付</h1>
+      <div class="mode-switch">
+        <button type="button" id="btn-morning" class="mode-btn active">午前モード</button>
+        <button type="button" id="btn-afternoon" class="mode-btn">午後モード</button>
+      </div>
+      <div class="staff-select">
+        <label for="staff">担当者:</label>
+        <select id="staff">
+          <option value="">選択してください</option>
+        </select>
+        <button type="button" id="btn-settings" class="settings-btn" title="表示項目の設定">⚙</button>
+      </div>
+    </header>
+
+    <div id="settings-modal" class="modal" aria-hidden="true">
+      <div class="modal-content">
+        <h2>表示項目のカスタマイズ</h2>
+        <div class="settings-section">
+          <h3>午前モード</h3>
+          <div id="morning-fields" class="field-checkboxes"></div>
+        </div>
+        <div class="settings-section">
+          <h3>午後モード</h3>
+          <div id="afternoon-fields" class="field-checkboxes"></div>
+        </div>
+        <button type="button" id="btn-settings-close" class="modal-close">閉じる</button>
+      </div>
+    </div>
+
+    <main class="main">
+      <div id="reader" class="qr-reader"></div>
+      <div id="error-area" class="error-area" aria-live="polite"></div>
+      <div id="participant-area" class="participant-area">
+        <p class="placeholder">QRコードをスキャンしてください</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/qr-scanner.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

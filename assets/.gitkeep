@@ -1,0 +1,2 @@
+# success.mp3 と error.mp3 をここに配置してください。
+# 未配置の場合は Web Audio API でビープ音が再生されます。

@@ -1,0 +1,9 @@
+docs/
+README.md
+index.html
+css/
+js/
+assets/
+.git/
+node_modules/
+*.md
