@@ -34,12 +34,10 @@ function initAndStart(mode, onScan) {
 
   const isSmartphone = isMobile();
 
-  // 午前モード（スマホ）: 背面カメラを優先 / それ以外: 前面カメラを優先
-  // ideal を使用してカメラが存在しない場合でもフォールバックできるようにする
-  const useBackCamera = mode === 'morning' && isSmartphone;
-  const cameraConstraint = useBackCamera
-    ? { facingMode: { ideal: 'environment' } }
-    : { facingMode: { ideal: 'user' } };
+  // html5-qrcode は facingMode に文字列のみ受け付ける（{ ideal: ... } は不可）
+  // 文字列指定はライブラリ内部で「優先（ideal）」として扱われるため、
+  // 該当カメラが存在しない場合は自動フォールバックされる
+  const facingMode = (mode === 'morning' && isSmartphone) ? 'environment' : 'user';
 
   // 読み取り枠: スマホ・PC ともに動的関数で計算
   // 【修正】固定値 250x250 はビューファインダーより大きくなるケースがあり
@@ -59,7 +57,7 @@ function initAndStart(mode, onScan) {
   const fps = isSmartphone ? 10 : 30;
 
   html5QrCode.start(
-    cameraConstraint,
+    { facingMode },
     {
       fps,
       qrbox: qrboxFunction,
