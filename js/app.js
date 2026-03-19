@@ -7,6 +7,7 @@ const MODE_AFTERNOON = 'afternoon';
 
 let currentMode = MODE_MORNING;
 let isProcessing = false;
+let scanCooldownTimer = null;
 
 // DOM
 const btnMorning = document.getElementById('btn-morning');
@@ -37,7 +38,7 @@ function playBeep(frequency = 800, duration = 0.15) {
 }
 
 function playSuccessSound() {
-  playBeep(880, 0.2);
+  playBeep(880, 0.15);
 }
 
 function playErrorSound() {
@@ -45,18 +46,37 @@ function playErrorSound() {
 }
 
 /**
- * 担当者リストを設定
+ * 担当者リストをスプレッドシートから取得して設定
+ * 取得失敗時は config.js のフォールバックリストを使用
  */
-function initStaffList() {
+async function initStaffList() {
+  staffSelect.innerHTML = '<option value="">読み込み中...</option>';
+  staffSelect.disabled = true;
+
+  const result = await API.getStaffList();
+
   staffSelect.innerHTML = '<option value="">選択してください</option>';
-  CONFIG.staffList.forEach((name) => {
+  staffSelect.disabled = false;
+
+  let nameList = [];
+  if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+    nameList = result.data;
+  } else {
+    // スプレッドシート取得失敗時はconfig.jsのリストを使用
+    nameList = CONFIG.staffList || [];
+    console.warn('担当者リストの取得に失敗しました。フォールバックリストを使用します。', result.error);
+  }
+
+  nameList.forEach((name) => {
     const opt = document.createElement('option');
     opt.value = name;
     opt.textContent = name;
     staffSelect.appendChild(opt);
   });
+
   const saved = localStorage.getItem('receptionStaff');
   if (saved) staffSelect.value = saved;
+
   staffSelect.addEventListener('change', () => {
     localStorage.setItem('receptionStaff', staffSelect.value);
   });
@@ -83,8 +103,6 @@ function initSettingsModal() {
   const modal = document.getElementById('settings-modal');
   const btnSettings = document.getElementById('btn-settings');
   const btnClose = document.getElementById('btn-settings-close');
-  const morningFields = document.getElementById('morning-fields');
-  const afternoonFields = document.getElementById('afternoon-fields');
 
   const allFields = [
     { key: 'id', label: 'ID' },
@@ -151,20 +169,39 @@ const FIELD_LABELS = {
 };
 
 /**
+ * ローディング表示
+ */
+function showLoading() {
+  participantArea.innerHTML = `
+    <div class="placeholder-wrapper">
+      <div class="loading-spinner"></div>
+      <p class="placeholder">受付処理中...</p>
+    </div>
+  `;
+}
+
+/**
  * 参加者情報を表示
  */
 function displayParticipant(data, isAlreadyReceived = false) {
   const fields = getDisplayFields();
   let html = '';
+
+  if (isAlreadyReceived) {
+    html += '<div class="status-badge-container"><span class="reception-badge warning">⚠️ 既に受付済みです</span></div>';
+  } else {
+    html += '<div class="status-badge-container"><span class="reception-badge success">✅ 受付完了</span></div>';
+  }
+
+  html += '<dl class="participant-info">';
   fields.forEach((key) => {
     const label = FIELD_LABELS[key] || key;
     const value = data[key] || '-';
-    html += `<dt>${label}</dt><dd>${escapeHtml(value)}</dd>`;
+    html += `<div class="info-row"><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`;
   });
-  if (isAlreadyReceived) {
-    html += '<dd><span class="reception-badge">受付済み</span></dd>';
-  }
-  participantArea.innerHTML = `<dl class="participant-info">${html}</dl>`;
+  html += '</dl>';
+
+  participantArea.innerHTML = html;
 }
 
 function escapeHtml(str) {
@@ -179,7 +216,12 @@ function escapeHtml(str) {
 function showError(message) {
   errorArea.textContent = message;
   errorArea.classList.add('visible');
-  participantArea.innerHTML = '<p class="placeholder">QRコードをスキャンしてください</p>';
+  participantArea.innerHTML = `
+    <div class="placeholder-wrapper">
+      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="qr-placeholder-icon"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="3" height="3"></rect><rect x="14" y="7" width="3" height="3"></rect><rect x="7" y="14" width="3" height="3"></rect><rect x="14" y="14" width="3" height="3"></rect></svg>
+      <p class="placeholder">QRコードをスキャンしてください</p>
+    </div>
+  `;
 }
 
 function hideError() {
@@ -189,9 +231,13 @@ function hideError() {
 
 /**
  * スキャン成功時の処理
+ * - QR検知の瞬間にビープ音を鳴らし、APIレスポンスを待たない
+ * - APIリクエストを1回（scanAndRegister）に統合して高速化
+ * - 3秒間のクールダウンで多重スキャンを防止
  */
 async function handleScan(participantId) {
   if (isProcessing) return;
+
   const staff = staffSelect.value?.trim();
   if (!staff) {
     showError('担当者を選択してください。');
@@ -199,29 +245,31 @@ async function handleScan(participantId) {
     return;
   }
 
+  // クールダウン開始（多重スキャン防止）
   isProcessing = true;
-  hideError();
+  clearTimeout(scanCooldownTimer);
 
-  const participantRes = await API.getParticipant(participantId);
-  if (!participantRes.success) {
-    showError(participantRes.error?.message || '参加者が見つかりません。');
-    playErrorSound();
-    isProcessing = false;
-    return;
-  }
-
-  const registerRes = await API.registerReception(participantId, staff);
-  if (!registerRes.success) {
-    showError(registerRes.error?.message || '受付登録に失敗しました。');
-    playErrorSound();
-    isProcessing = false;
-    return;
-  }
-
-  const isAlreadyReceived = participantRes.data.receptionStatus === '受付済み';
-  displayParticipant(participantRes.data, isAlreadyReceived);
+  // QR検知の瞬間にビープ音を鳴らす（APIを待たない）
   playSuccessSound();
-  isProcessing = false;
+
+  hideError();
+  showLoading();
+
+  const result = await API.scanAndRegister(participantId, staff);
+
+  if (!result.success) {
+    showError(result.error?.message || 'エラーが発生しました。');
+    playErrorSound();
+    isProcessing = false;
+    return;
+  }
+
+  displayParticipant(result.data, result.wasAlreadyReceived);
+
+  // 3秒後にスキャン再開可能にする
+  scanCooldownTimer = setTimeout(() => {
+    isProcessing = false;
+  }, 3000);
 }
 
 /**
@@ -229,10 +277,17 @@ async function handleScan(participantId) {
  */
 function setMode(mode) {
   currentMode = mode;
+  isProcessing = false;
+  clearTimeout(scanCooldownTimer);
   btnMorning.classList.toggle('active', mode === MODE_MORNING);
   btnAfternoon.classList.toggle('active', mode === MODE_AFTERNOON);
   stopQrScanner();
-  participantArea.innerHTML = '<p class="placeholder">QRコードをスキャンしてください</p>';
+  participantArea.innerHTML = `
+    <div class="placeholder-wrapper">
+      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="qr-placeholder-icon"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="3" height="3"></rect><rect x="14" y="7" width="3" height="3"></rect><rect x="7" y="14" width="3" height="3"></rect><rect x="14" y="14" width="3" height="3"></rect></svg>
+      <p class="placeholder">QRコードをスキャンしてください</p>
+    </div>
+  `;
   hideError();
   startQrScanner(mode, handleScan);
 }
@@ -247,8 +302,8 @@ window.onCameraError = (err) => {
 /**
  * 初期化
  */
-function init() {
-  initStaffList();
+async function init() {
+  await initStaffList();
   initSettingsModal();
   btnMorning.addEventListener('click', () => setMode(MODE_MORNING));
   btnAfternoon.addEventListener('click', () => setMode(MODE_AFTERNOON));

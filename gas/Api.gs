@@ -1,21 +1,16 @@
 /**
  * QRコード受付システム - Web API
  * API設計書に基づく doGet / doPost 実装
+ * 注: GAS Web アプリを「全員」でデプロイすると、GitHub Pages 等からのクロスオリジンリクエストが許可されます
  */
 
-var CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Content-Type': 'application/json; charset=utf-8'
-};
-
 /**
- * JSON レスポンスを返す（CORS ヘッダ付き）
+ * JSON レスポンスを返す
  */
 function createJsonResponse(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeaders(CORS_HEADERS);
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
@@ -29,31 +24,41 @@ function createErrorResponse(code, message) {
 }
 
 /**
- * GET リクエスト処理 - 参加者情報取得
+ * GET リクエスト処理
+ * action=getParticipant: 参加者情報取得
+ * action=getStaffList: 担当者リスト取得
  */
 function doGet(e) {
   try {
     var params = e.parameter || {};
     var action = params.action;
-    var id = params.id;
 
-    if (action !== 'getParticipant') {
-      return createErrorResponse('INVALID_REQUEST', '無効なリクエストです。');
+    // 担当者リスト取得
+    if (action === 'getStaffList') {
+      var staffList = getStaffList();
+      return createJsonResponse({
+        success: true,
+        data: staffList
+      });
     }
 
-    if (!id || String(id).trim() === '') {
-      return createErrorResponse('INVALID_REQUEST', '参加者IDが指定されていません。');
+    // 参加者情報取得
+    if (action === 'getParticipant') {
+      var id = params.id;
+      if (!id || String(id).trim() === '') {
+        return createErrorResponse('INVALID_REQUEST', '参加者IDが指定されていません。');
+      }
+      var participant = getParticipantData(id);
+      if (!participant) {
+        return createErrorResponse('NOT_FOUND', '指定されたIDの参加者が見つかりません。');
+      }
+      return createJsonResponse({
+        success: true,
+        data: participant
+      });
     }
 
-    var participant = getParticipantData(id);
-    if (!participant) {
-      return createErrorResponse('NOT_FOUND', '指定されたIDの参加者が見つかりません。');
-    }
-
-    return createJsonResponse({
-      success: true,
-      data: participant
-    });
+    return createErrorResponse('INVALID_REQUEST', '無効なリクエストです。');
   } catch (err) {
     Logger.log(err);
     return createErrorResponse('SERVER_ERROR', 'サーバーエラーが発生しました。');
@@ -61,7 +66,9 @@ function doGet(e) {
 }
 
 /**
- * POST リクエスト処理 - 受付登録
+ * POST リクエスト処理
+ * action=scanAndRegister: 参加者情報取得 + 受付登録を1回で実行（高速化）
+ * action=registerReception: 受付登録のみ（後方互換用）
  */
 function doPost(e) {
   try {
@@ -74,33 +81,56 @@ function doPost(e) {
     var id = json.id;
     var staff = json.staff;
 
-    if (action !== 'registerReception') {
-      return createErrorResponse('INVALID_REQUEST', '無効なリクエストです。');
-    }
-
     if (!id || String(id).trim() === '') {
       return createErrorResponse('INVALID_REQUEST', '参加者IDが指定されていません。');
     }
 
-    if (!staff || String(staff).trim() === '') {
-      return createErrorResponse('INVALID_REQUEST', '受付担当者が指定されていません。');
-    }
-
-    var success = updateReceptionStatus(id, staff);
-    if (!success) {
-      return createErrorResponse('NOT_FOUND', '指定されたIDの参加者が見つかりません。');
-    }
-
-    var participant = getParticipantData(id);
-    return createJsonResponse({
-      success: true,
-      data: {
-        id: participant.id,
-        receptionStatus: participant.receptionStatus,
-        receptionDatetime: participant.receptionDatetime,
-        receptionStaff: participant.receptionStaff
+    // スキャン＋受付登録を1リクエストで完結（フロントエンドのAPI呼び出しを半減）
+    if (action === 'scanAndRegister') {
+      if (!staff || String(staff).trim() === '') {
+        return createErrorResponse('INVALID_REQUEST', '受付担当者が指定されていません。');
       }
-    });
+
+      var participant = getParticipantData(id);
+      if (!participant) {
+        return createErrorResponse('NOT_FOUND', '指定されたIDの参加者が見つかりません。');
+      }
+
+      // 登録前の受付状態を記録
+      var wasAlreadyReceived = participant.receptionStatus === '受付済み';
+
+      // 受付ステータスを更新（既に受付済みでも上書き記録）
+      updateReceptionStatus(id, staff);
+
+      return createJsonResponse({
+        success: true,
+        data: participant,
+        wasAlreadyReceived: wasAlreadyReceived
+      });
+    }
+
+    // 後方互換: 受付登録のみ
+    if (action === 'registerReception') {
+      if (!staff || String(staff).trim() === '') {
+        return createErrorResponse('INVALID_REQUEST', '受付担当者が指定されていません。');
+      }
+      var success = updateReceptionStatus(id, staff);
+      if (!success) {
+        return createErrorResponse('NOT_FOUND', '指定されたIDの参加者が見つかりません。');
+      }
+      var updatedParticipant = getParticipantData(id);
+      return createJsonResponse({
+        success: true,
+        data: {
+          id: updatedParticipant.id,
+          receptionStatus: updatedParticipant.receptionStatus,
+          receptionDatetime: updatedParticipant.receptionDatetime,
+          receptionStaff: updatedParticipant.receptionStaff
+        }
+      });
+    }
+
+    return createErrorResponse('INVALID_REQUEST', '無効なリクエストです。');
   } catch (err) {
     Logger.log(err);
     return createErrorResponse('SERVER_ERROR', 'サーバーエラーが発生しました。');

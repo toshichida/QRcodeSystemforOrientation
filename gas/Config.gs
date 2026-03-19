@@ -6,6 +6,10 @@
 // シート名
 var SHEET_PARTICIPANTS = '参加者データ';
 var SHEET_MAIL_SETTINGS = 'メール設定';
+var SHEET_STAFF = '担当者';
+
+// 担当者シートの列インデックス
+var COL_STAFF_NAME = 1; // A: 担当者名
 
 // 参加者データの列インデックス（A=1, B=2, ...）
 var COL_ID = 1;                    // A: ID
@@ -33,5 +37,5 @@ var PARTICIPANT_HEADERS = [
 
 // メール設定の項目（行: 項目名, 行+1: 値）
 var MAIL_SETTING_ITEMS = [
-  '送信者名', '送信先', '返信先アドレス', '返信先名', 'CCアドレス', '件名', '一斉送信メール本文'
+  '送信者名', '返信先アドレス', '返信先名', 'CCアドレス', '件名', '一斉送信メール本文'
 ];

@@ -19,6 +19,10 @@ function setupSpreadsheet() {
   if (mailSheet) {
     ss.deleteSheet(mailSheet);
   }
+  var staffSheet = ss.getSheetByName(SHEET_STAFF);
+  if (staffSheet) {
+    ss.deleteSheet(staffSheet);
+  }
 
   // 参加者データシート作成
   participantsSheet = ss.insertSheet(SHEET_PARTICIPANTS);
@@ -34,7 +38,12 @@ function setupSpreadsheet() {
   mailSheet.getRange(1, 1, MAIL_SETTING_ITEMS.length, 2).setValues(mailData);
   mailSheet.getRange(1, 1, MAIL_SETTING_ITEMS.length, 1).setFontWeight('bold');
 
-  SpreadsheetApp.getUi().alert('スプレッドシートの初期設定が完了しました。');
+  // 担当者シート作成
+  staffSheet = ss.insertSheet(SHEET_STAFF);
+  staffSheet.getRange(1, 1).setValue('担当者名');
+  staffSheet.getRange(1, 1).setFontWeight('bold');
+
+  SpreadsheetApp.getUi().alert('スプレッドシートの初期設定が完了しました。\n「担当者」シートのA列（2行目以降）に担当者名を入力してください。');
 }
 
 /**
@@ -111,6 +120,25 @@ function updateDraftCreated(row) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_PARTICIPANTS);
   var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
   sheet.getRange(row, COL_DRAFT_CREATED).setValue(now);
+}
+
+/**
+ * 担当者リストを取得する（API用）
+ * 「担当者」シートのA列（2行目以降）から担当者名を読み取る
+ */
+function getStaffList() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_STAFF);
+  if (!sheet) return [];
+
+  var data = sheet.getDataRange().getValues();
+  var names = [];
+  for (var i = 1; i < data.length; i++) {
+    var name = String(data[i][COL_STAFF_NAME - 1] || '').trim();
+    if (name) {
+      names.push(name);
+    }
+  }
+  return names;
 }
 
 /**

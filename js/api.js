@@ -5,7 +5,42 @@
 
 const API = {
   /**
-   * 参加者情報を取得
+   * 担当者リストをスプレッドシートから取得
+   * @returns {Promise<{success: boolean, data?: string[], error?: object}>}
+   */
+  async getStaffList() {
+    const url = `${CONFIG.GAS_WEB_APP_URL}?action=getStaffList`;
+    try {
+      const res = await fetch(url, { method: 'GET', mode: 'cors' });
+      return await res.json();
+    } catch (err) {
+      return { success: false, error: { code: 'NETWORK_ERROR', message: 'ネットワークエラーが発生しました。' } };
+    }
+  },
+
+  /**
+   * スキャン＋受付登録を1リクエストで実行（高速化）
+   * getParticipant + registerReception を統合し、APIリクエストを1回に削減
+   * @param {string} id - 参加者ID
+   * @param {string} staff - 受付担当者
+   * @returns {Promise<{success: boolean, data?: object, wasAlreadyReceived?: boolean, error?: object}>}
+   */
+  async scanAndRegister(id, staff) {
+    try {
+      const res = await fetch(CONFIG.GAS_WEB_APP_URL, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'scanAndRegister', id, staff })
+      });
+      return await res.json();
+    } catch (err) {
+      return { success: false, error: { code: 'NETWORK_ERROR', message: 'ネットワークエラーが発生しました。' } };
+    }
+  },
+
+  /**
+   * 参加者情報を取得（後方互換用）
    * @param {string} id - 参加者ID
    * @returns {Promise<{success: boolean, data?: object, error?: object}>}
    */
@@ -20,7 +55,7 @@ const API = {
   },
 
   /**
-   * 受付登録
+   * 受付登録（後方互換用）
    * @param {string} id - 参加者ID
    * @param {string} staff - 受付担当者
    * @returns {Promise<{success: boolean, data?: object, error?: object}>}
@@ -30,7 +65,7 @@ const API = {
       const res = await fetch(CONFIG.GAS_WEB_APP_URL, {
         method: 'POST',
         mode: 'cors',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'registerReception', id, staff })
       });
       return await res.json();

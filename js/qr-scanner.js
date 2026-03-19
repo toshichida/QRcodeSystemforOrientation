@@ -3,6 +3,7 @@
  * html5-qrcode 使用、スマホ: 固定枠 / PC: 広めの枠
  */
 
+const READER_ELEMENT_ID = 'reader';
 let html5QrCode = null;
 
 /**
@@ -18,7 +19,6 @@ function isMobile() {
  * @param {function(string)} onScan - スキャン成功時のコールバック（参加者IDを渡す）
  */
 function startQrScanner(mode, onScan) {
-  const elementId = 'reader';
   if (html5QrCode && html5QrCode.isScanning) {
     html5QrCode.stop().then(() => initAndStart(mode, onScan)).catch(() => initAndStart(mode, onScan));
   } else {
@@ -30,22 +30,30 @@ function initAndStart(mode, onScan) {
   if (html5QrCode) {
     html5QrCode.clear();
   }
-  html5QrCode = new Html5Qrcode(elementId);
+  html5QrCode = new Html5Qrcode(READER_ELEMENT_ID);
 
   // 午前モード: スマホ背面カメラ / 午後モード: PC ウェブカメラ
   const facingMode = (mode === 'morning' && isMobile()) ? 'environment' : 'user';
 
-  // 読み取り枠: スマホは固定サイズ、PCは画面の大部分を占有
+  // 読み取り枠: スマホは固定サイズ、PCは適度なサイズ（最大400px）
   const qrboxConfig = isMobile()
     ? { width: 250, height: 250 }
-    : (viewfinderWidth, viewfinderHeight) => ({
-        width: Math.floor(viewfinderWidth * 0.9),
-        height: Math.floor(viewfinderHeight * 0.9)
-      });
+    : (viewfinderWidth, viewfinderHeight) => {
+        const maxSize = 400;
+        const size = Math.min(
+          Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.8),
+          maxSize
+        );
+        return { width: size, height: size };
+      };
 
   html5QrCode.start(
     { facingMode },
-    { fps: 10, qrbox: qrboxConfig },
+    {
+      fps: 30,          // 10→30fpsに引き上げてQR検知速度を最大化
+      qrbox: qrboxConfig,
+      disableFlip: false
+    },
     (decodedText) => {
       onScan(decodedText);
     },

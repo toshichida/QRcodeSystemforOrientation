@@ -16,17 +16,24 @@ function getQrCodeUrl(id) {
 /**
  * メール本文に参加者情報・QRコードを差し込む
  * プレースホルダー: {{name}}, {{studentNumber}}, {{department}}, {{id}}, {{qrCode}}
+ * - {{qrCode}} は ID を QR コードの真上に大きく表示したブロックに置換される
+ * - スプレッドシートの改行（Enter）は自動で <br> に変換される
  */
 function buildMailBody(template, participant) {
   var qrUrl = getQrCodeUrl(participant.id);
+  var idDisplay = '<div style="font-size: 72px; font-weight: bold; letter-spacing: 0.1em; margin-bottom: 12px;">' + (participant.id || '') + '</div>';
   var qrImg = '<img src="' + qrUrl + '" alt="QR Code" width="200" height="200" />';
+  var qrBlock = '<div style="text-align: center;">' + idDisplay + qrImg + '</div>';
 
   var body = template
     .replace(/\{\{name\}\}/g, participant.name || '')
     .replace(/\{\{studentNumber\}\}/g, participant.studentNumber || '')
     .replace(/\{\{department\}\}/g, participant.department || '')
     .replace(/\{\{id\}\}/g, participant.id || '')
-    .replace(/\{\{qrCode\}\}/g, qrImg);
+    .replace(/\{\{qrCode\}\}/g, qrBlock);
+
+  // スプレッドシートの改行を HTML の改行に変換
+  body = body.replace(/\n/g, '<br>');
 
   return body;
 }

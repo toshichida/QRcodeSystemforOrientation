@@ -45,6 +45,9 @@ gh repo create QRcodeSystemforOrientation --private --source=. --push
 
 GitHub の Settings → Pages で「Deploy from a branch」を選択し、Branch: `main`, Folder: `/ (root)` に設定。
 
+- リポジトリ: https://github.com/toshichida/QRcodeSystemforOrientation
+- 注意: プライベートリポジトリでは GitHub Pages が制限される場合があります。その場合はリポジトリをパブリックにするか、ローカルで `npx serve .` で動作確認してください。
+
 ## 使い方
 
 - **午前モード**: スマートフォンで職員が学生の QR コードをスキャン（背面カメラ）
