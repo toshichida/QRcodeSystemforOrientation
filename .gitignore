@@ -3,3 +3,6 @@ node_modules/
 *.log
 .env
 .env.local
+
+# GAS プロジェクト紐付け（scriptId を含む）
+.clasp.json
