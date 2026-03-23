@@ -83,6 +83,24 @@ async function initStaffList() {
 }
 
 /**
+ * 午前モードの保存値で誤って使われていた assemblyRoom を residence（住まい）へ読み替える
+ */
+function normalizeMorningDisplayFieldKeys(keys) {
+  if (!Array.isArray(keys)) return keys;
+  return [...new Set(keys.map((k) => (k === 'assemblyRoom' ? 'residence' : k)))];
+}
+
+/** 変更前の午前デフォルト（3項目）— これのみ保存されている端末は新デフォルトへ移行 */
+const LEGACY_MORNING_DEFAULT_KEYS = ['id', 'name', 'department'];
+
+function isLegacyMorningDefaultOnly(keys) {
+  if (!Array.isArray(keys) || keys.length !== LEGACY_MORNING_DEFAULT_KEYS.length) return false;
+  const a = [...keys].sort().join(',');
+  const b = [...LEGACY_MORNING_DEFAULT_KEYS].sort().join(',');
+  return a === b;
+}
+
+/**
  * 表示項目を取得（localStorage でカスタマイズ可能）
  */
 function getDisplayFields() {
@@ -90,7 +108,15 @@ function getDisplayFields() {
   const saved = localStorage.getItem(key);
   if (saved) {
     try {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      if (currentMode === MODE_MORNING) {
+        const normalized = normalizeMorningDisplayFieldKeys(parsed);
+        if (isLegacyMorningDefaultOnly(normalized)) {
+          return [...CONFIG.morningDisplayFields];
+        }
+        return normalized;
+      }
+      return parsed;
     } catch (e) {}
   }
   return currentMode === MODE_MORNING ? [...CONFIG.morningDisplayFields] : [...CONFIG.afternoonDisplayFields];
@@ -108,6 +134,7 @@ function initSettingsModal() {
     { key: 'id', label: 'ID' },
     { key: 'name', label: '氏名' },
     { key: 'department', label: '所属課程' },
+    { key: 'residence', label: '住まい' },
     { key: 'assemblyRoom', label: '集合教室' },
     { key: 'studentNumber', label: '学籍番号' },
     { key: 'email', label: 'メールアドレス' }
@@ -121,6 +148,17 @@ function initSettingsModal() {
       try {
         selected = JSON.parse(saved);
       } catch (e) {}
+    }
+    if (storageKey === 'morningDisplayFields') {
+      if (isLegacyMorningDefaultOnly(selected)) {
+        selected = [...CONFIG.morningDisplayFields];
+        localStorage.setItem(storageKey, JSON.stringify(selected));
+      }
+      const normalized = normalizeMorningDisplayFieldKeys(selected);
+      if (JSON.stringify(normalized) !== JSON.stringify(selected)) {
+        localStorage.setItem(storageKey, JSON.stringify(normalized));
+      }
+      selected = normalized;
     }
     container.innerHTML = '';
     allFields.forEach(({ key, label }) => {
@@ -163,6 +201,7 @@ const FIELD_LABELS = {
   id: 'ID',
   name: '氏名',
   department: '所属課程',
+  residence: '住まい',
   assemblyRoom: '集合教室',
   studentNumber: '学籍番号',
   email: 'メールアドレス'
